@@ -55,6 +55,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void test(View view) {
+        if (mRemoteService == null) {
+            return;
+        }
         new Thread(new Runnable() {
             @Override
             public void run() {
@@ -79,6 +82,7 @@ public class MainActivity extends AppCompatActivity {
     private IOnNewBookArrivedListener.Stub listener = new IOnNewBookArrivedListener.Stub() {
         @Override
         public void onNewBookArrived(Book book) throws RemoteException {
+            //这里是在Binder的线程池中，不能对UI进行操作。如果要操作UI线程，需要使用Handler。
             Log.d("MainActivity", book.getName());
         }
     };

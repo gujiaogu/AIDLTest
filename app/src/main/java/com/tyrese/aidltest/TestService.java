@@ -2,6 +2,7 @@ package com.tyrese.aidltest;
 
 import android.app.Service;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.IBinder;
 import android.os.RemoteCallbackList;
 import android.os.RemoteException;
@@ -13,7 +14,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class TestService extends Service {
 
     private RemoteCallbackList<IOnNewBookArrivedListener> mListeners = new RemoteCallbackList<>();
-    private AtomicBoolean isDistroyed = new AtomicBoolean(false);
+    private AtomicBoolean isDestroyed = new AtomicBoolean(false);
 
     public TestService() {
     }
@@ -26,12 +27,17 @@ public class TestService extends Service {
 
     @Override
     public void onDestroy() {
-        isDistroyed.set(true);
+        isDestroyed.set(true);
         super.onDestroy();
     }
 
     @Override
     public IBinder onBind(Intent intent) {
+        int check = checkCallingOrSelfPermission("com.tyrese.aidltest.MyPermissionTest");
+        if (check == PackageManager.PERMISSION_DENIED) {
+            Log.d("TestService", "bind failed");
+            return null;
+        }
         return mBinder;
     }
 
@@ -63,10 +69,12 @@ public class TestService extends Service {
     };
 
     private void onNewBookArrived(Book book) {
+        // 这个方法中调用了客户端的方法，会阻塞，所以必须保证这个方法在异步线程中执行。
         int count = mListeners.beginBroadcast();
         for (int i = 0; i < count; i ++) {
             IOnNewBookArrivedListener listener = mListeners.getBroadcastItem(i);
             try {
+                // 这句是在客户端的Binder线程池中，并且它是阻塞的。
                 listener.onNewBookArrived(book);
             } catch (RemoteException e) {
                 e.printStackTrace();
@@ -79,7 +87,7 @@ public class TestService extends Service {
         @Override
         public void run() {
             int count = 0;
-            while (!isDistroyed.get()) {
+            while (!isDestroyed.get()) {
                 count ++;
                 try {
                     TimeUnit.MILLISECONDS.sleep(3000);
